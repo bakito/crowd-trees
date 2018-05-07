@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: crowdtrees
+  main:
+    banner_mode: 'OFF'
+
+
+crowd-trees:
+  color:
+    active: darkorange
+    users: skyblue
+    groups: palegreen
+
