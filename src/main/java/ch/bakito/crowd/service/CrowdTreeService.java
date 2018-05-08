@@ -1,17 +1,13 @@
 package ch.bakito.crowd.service;
 
-import ch.bakito.crowd.constants.ImageType;
-import ch.bakito.crowd.model.Diagram;
-import ch.bakito.crowd.model.GroupNode;
-import ch.bakito.crowd.model.UserNode;
-import com.atlassian.crowd.exception.ApplicationPermissionException;
-import com.atlassian.crowd.exception.CrowdException;
-import com.atlassian.crowd.exception.ObjectNotFoundException;
-import com.atlassian.crowd.integration.rest.service.factory.RestCrowdClientFactory;
-import com.atlassian.crowd.model.group.Group;
-import com.atlassian.crowd.model.user.User;
-import com.atlassian.crowd.service.client.ClientProperties;
-import com.atlassian.crowd.service.client.CrowdClient;
+import static org.apache.commons.io.IOUtils.copy;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.List;
+
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.Executor;
@@ -20,13 +16,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.List;
+import com.atlassian.crowd.exception.ApplicationPermissionException;
+import com.atlassian.crowd.exception.CrowdException;
+import com.atlassian.crowd.exception.GroupNotFoundException;
+import com.atlassian.crowd.exception.InvalidAuthenticationException;
+import com.atlassian.crowd.exception.ObjectNotFoundException;
+import com.atlassian.crowd.exception.OperationFailedException;
+import com.atlassian.crowd.integration.rest.service.factory.RestCrowdClientFactory;
+import com.atlassian.crowd.model.group.Group;
+import com.atlassian.crowd.model.user.User;
+import com.atlassian.crowd.service.client.ClientProperties;
+import com.atlassian.crowd.service.client.CrowdClient;
 
-import static org.apache.commons.io.IOUtils.copy;
+import ch.bakito.crowd.constants.ImageType;
+import ch.bakito.crowd.exception.CrowdTreeObjectNotFoundException;
+import ch.bakito.crowd.exception.CrowdTreeRuntimeException;
+import ch.bakito.crowd.model.Diagram;
+import ch.bakito.crowd.model.GroupNode;
+import ch.bakito.crowd.model.UserNode;
 
 @Component("crowdTreeService")
 public class CrowdTreeService implements ICrowdTreeService {
@@ -47,8 +54,8 @@ public class CrowdTreeService implements ICrowdTreeService {
   }
 
   @Override
-  public void generateUserGroupTree(String userId, OutputStream targetStream, ImageType imageType) throws ObjectNotFoundException {
-    Diagram diagram = new Diagram("crowd-user-group-tree-" + userId);
+  public void generateUserGroupTree(String userId, OutputStream targetStream, ImageType imageType) {
+    Diagram diagram = new Diagram("crowd-user-group-tree-" + userId, "Group hierarchy of user '" + userId + "'");
     try {
       CrowdClient client = new RestCrowdClientFactory().newInstance(clientProperties);
       User cwdUser = client.getUser(userId);
@@ -60,20 +67,20 @@ public class CrowdTreeService implements ICrowdTreeService {
       for (Group group : nestedChildGroupsOfGroup) {
         GroupNode groupNode = new GroupNode(group, colorGroups);
         diagram.addTransition(groupNode, user);
-        loadParents(client, groupNode, diagram);
+        loadParents(client, groupNode, diagram, false);
 
       }
     } catch (ObjectNotFoundException e) {
-      throw e;
+      throw new CrowdTreeObjectNotFoundException(e);
     } catch (ApplicationPermissionException | CrowdException e) {
-      throw new RuntimeException(e);
+      throw new CrowdTreeRuntimeException(e);
     }
 
     generateImage(diagram.toString(), targetStream, imageType);
   }
 
-  public void generateGroupUserTree(String groupId, OutputStream targetStream, ImageType imageType) throws ObjectNotFoundException {
-    Diagram diagram = new Diagram("crowd-group-user-group-" + groupId);
+  public void generateGroupHierarchy(String groupId, OutputStream targetStream, boolean withUsers, ImageType imageType) {
+    Diagram diagram = new Diagram("crowd-group-user-group-" + groupId, "Hierarchy of group '" + groupId + "'");
     try {
       CrowdClient client = new RestCrowdClientFactory().newInstance(clientProperties);
       Group cwdGroup = client.getGroup(groupId);
@@ -81,41 +88,48 @@ public class CrowdTreeService implements ICrowdTreeService {
 
       diagram.addNode(requestedGroup);
 
-      List<User> uersOfGroup = client.getUsersOfGroup(requestedGroup.getName(), 0, -1);
-      uersOfGroup.forEach(u -> {
-        UserNode user = new UserNode(u, colorUsers);
+      addUsers(withUsers, diagram, client, requestedGroup, requestedGroup.getName());
 
-        diagram.addTransition(user, requestedGroup);
-      });
-
-      loadChildren(groupId, diagram, client, requestedGroup);
+      loadChildren(client, requestedGroup, diagram, withUsers);
+      loadParents(client, requestedGroup, diagram, true);
     } catch (ObjectNotFoundException e) {
-      throw e;
+      throw new CrowdTreeObjectNotFoundException(e);
     } catch (ApplicationPermissionException | CrowdException e) {
-      throw new RuntimeException(e);
+      throw new CrowdTreeRuntimeException(e);
     }
 
     generateImage(diagram.toString(), targetStream, imageType);
 
   }
 
-  private void loadChildren(String groupId, Diagram diagram, CrowdClient client, GroupNode requestedGroup) {
+  private void addUsers(boolean withUsers, Diagram diagram, CrowdClient client, GroupNode requestedGroup, String name) throws OperationFailedException, GroupNotFoundException,
+      ApplicationPermissionException, InvalidAuthenticationException {
+    if (withUsers) {
+      List<User> uersOfGroup = client.getUsersOfGroup(name, 0, -1);
+      uersOfGroup.forEach(u -> {
+        UserNode user = new UserNode(u, colorUsers);
+
+        diagram.addTransition(user, requestedGroup);
+      });
+    }
+  }
+
+  private void loadChildren(CrowdClient client, GroupNode group, Diagram diagram, boolean withUsers) {
     try {
-      List<Group> childGroups = client.getChildGroupsOfGroup(groupId, 0, -1);
+      List<Group> childGroups = client.getChildGroupsOfGroup(group.getName(), 0, -1);
       for (Group childGroup : childGroups) {
         GroupNode childGroupNode = new GroupNode(childGroup, colorGroups);
-        diagram.addTransition(childGroupNode, requestedGroup);
+        diagram.addTransition(childGroupNode, group);
 
-        List<User> nestedUsersOfGroup = client.getUsersOfGroup(childGroup.getName(), 0, -1);
-        nestedUsersOfGroup.forEach(u -> {
-          UserNode user = new UserNode(u, colorUsers);
-
-          diagram.addTransition(user, childGroupNode);
-          loadChildren(childGroup.getName(), diagram, client, childGroupNode);
-        });
+        addUsers(withUsers, diagram, client, childGroupNode, childGroup.getName());
+        loadChildren(client, childGroupNode, diagram, withUsers);
       }
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    } catch (ObjectNotFoundException e) {
+      throw new CrowdTreeObjectNotFoundException(e);
+    } catch (InvalidAuthenticationException e) {
+      e.printStackTrace();
+    } catch (OperationFailedException | ApplicationPermissionException e) {
+      throw new CrowdTreeRuntimeException(e);
     }
   }
 
@@ -145,12 +159,16 @@ public class CrowdTreeService implements ICrowdTreeService {
     exec.execute(cli);
   }
 
-  private void loadParents(CrowdClient client, GroupNode groupNode, Diagram diagram) throws CrowdException, ApplicationPermissionException {
+  private void loadParents(CrowdClient client, GroupNode groupNode, Diagram diagram, boolean inverseMapping) throws CrowdException, ApplicationPermissionException {
     List<Group> parentGroupsForGroup = client.getParentGroupsForGroup(groupNode.getName(), 0, -1);
     for (Group parent : parentGroupsForGroup) {
       GroupNode parentGroup = new GroupNode(parent, colorGroups);
-      diagram.addTransition(parentGroup, groupNode);
-      loadParents(client, parentGroup, diagram);
+      if (inverseMapping) {
+        diagram.addTransition(groupNode, parentGroup);
+      } else {
+        diagram.addTransition(parentGroup, groupNode);
+      }
+      loadParents(client, parentGroup, diagram, inverseMapping);
     }
   }
 }

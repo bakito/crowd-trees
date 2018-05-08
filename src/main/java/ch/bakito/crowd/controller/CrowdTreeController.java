@@ -14,12 +14,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.atlassian.crowd.exception.ObjectNotFoundException;
+
 import ch.bakito.crowd.constants.ImageType;
 import ch.bakito.crowd.service.ICrowdTreeService;
-
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 
@@ -48,12 +49,13 @@ public class CrowdTreeController {
   @ApiOperation(value = "Produces a tree of all users and subgroups for the group with the given id")
   @RequestMapping(value = "/group/{groupId}", method = RequestMethod.GET)
   public @ResponseBody void getGroupTree(@ApiParam(value = "Define the requested output type", defaultValue = ACCEPT) @RequestHeader(value = "Accept") String accept,
-      @PathVariable("groupId") String groupId, HttpServletResponse response) throws IOException, ObjectNotFoundException {
+      @PathVariable("groupId") String groupId, HttpServletResponse response, @RequestParam(name = "withUsers", defaultValue = "true") boolean withUsers) throws IOException,
+      ObjectNotFoundException {
     ImageType type = getExtensionFor(accept);
     response.setContentType(type.getResponseContentType());
     response.setHeader("Content-Disposition", "inline;filename=crowd-group-tree-" + groupId + "." + type.getExtension());
 
-    crowdTreeService.generateGroupUserTree(groupId, response.getOutputStream(), type);
+    crowdTreeService.generateGroupHierarchy(groupId, response.getOutputStream(), withUsers, type);
   }
 
   @ApiOperation(value = "Renders the provided dot file as image")

@@ -14,10 +14,17 @@ import com.atlassian.crowd.exception.ObjectNotFoundException;
 @ControllerAdvice
 public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionHandler {
 
-  @ExceptionHandler(value = {ObjectNotFoundException.class})
+  @ExceptionHandler(value = {ObjectNotFoundException.class, CrowdTreeObjectNotFoundException.class})
   protected ResponseEntity<Object> handleCrowdObjectNotFound(ObjectNotFoundException ex, WebRequest request) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.TEXT_PLAIN);
     return handleExceptionInternal(ex, ex.getMessage(), headers, HttpStatus.NOT_FOUND, request);
+  }
+
+  @ExceptionHandler(value = {CrowdTreeRuntimeException.class})
+  protected ResponseEntity<Object> handleRuntimeException(ObjectNotFoundException ex, WebRequest request) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.TEXT_PLAIN);
+    return handleExceptionInternal(ex, ex.getMessage(), headers, HttpStatus.INTERNAL_SERVER_ERROR , request);
   }
 }

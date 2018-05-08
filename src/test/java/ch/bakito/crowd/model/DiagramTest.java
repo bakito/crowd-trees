@@ -1,28 +1,30 @@
 package ch.bakito.crowd.model;
 
-import org.hamcrest.Matchers;
+import static org.hamcrest.Matchers.hasSize;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 public class DiagramTest extends Assert {
+
   @Test
   public void addNodeHashCodeTest() {
-    Diagram diagram = new Diagram("");
+    Diagram diagram = new Diagram("", "");
 
     diagram.addNode(new UserNode("aaa", "skyblue"));
     diagram.addNode(new GroupNode("aaa", "skyblue"));
 
-    assertThat(diagram.getNodes(), Matchers.hasSize(2));
+    assertThat(diagram.getNodes(), hasSize(2));
 
     diagram.addNode(new GroupNode("aaa", "skyblue"));
     diagram.addNode(new GroupNode("bbb", "skyblue"));
 
-    assertThat(diagram.getNodes(), Matchers.hasSize(3));
+    assertThat(diagram.getNodes(), hasSize(3));
   }
 
   @Test
   public void addTransistion() {
-    Diagram diagram = new Diagram("");
+    Diagram diagram = new Diagram("", "");
 
     UserNode user1 = new UserNode("user1", "skyblue");
     UserNode user2 = new UserNode("user2", "skyblue");
@@ -36,12 +38,12 @@ public class DiagramTest extends Assert {
 
     diagram.addTransition(user2, group2);
 
-    assertThat(diagram.getNodes(), Matchers.hasSize(4));
+    assertThat(diagram.getNodes(), hasSize(4));
     assertTrue(diagram.getNodes().contains(user1));
     assertTrue(diagram.getNodes().contains(user2));
     assertTrue(diagram.getNodes().contains(group1));
     assertTrue(diagram.getNodes().contains(group2));
 
-    assertThat(diagram.getTransitions(), Matchers.hasSize(3));
+    assertThat(diagram.getTransitions(), hasSize(3));
   }
 }

@@ -11,15 +11,12 @@ FROM java:8-alpine
 
 LABEL maintainer="bakito <github@bakito.ch>"
 
+WORKDIR /opt/crowd-trees
 EXPOSE 8080
-
-RUN apk add --update --no-cache \
-           graphviz \
-           ttf-freefont
 
 CMD java ${JAVA_OPTIONS} -jar /opt/crowd-trees/crowd-trees.jar
 
-WORKDIR /opt/crowd-trees
+RUN apk add --update --no-cache graphviz ttf-freefont
 
 COPY --from=builder /tmp/mvn/target/crowd-trees-*.jar /opt/crowd-trees/crowd-trees.jar
 
