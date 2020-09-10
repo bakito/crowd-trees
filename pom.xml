@@ -97,10 +97,7 @@
     <repositories>
         <repository>
             <id>atlassian</id>
-            <url>https://maven.atlassian.com/content/repositories/atlassian-public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
+            <url>https://packages.atlassian.com/maven-public</url>
         </repository>
     </repositories>
 </project>
