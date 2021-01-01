@@ -22,7 +22,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
-        <crowd.version>2.9.5</crowd.version>
+        <crowd.version>1000.113.0</crowd.version>
         <logback.version>1.2.3</logback.version>
         <springfox.version>3.0.0</springfox.version>
     </properties>
